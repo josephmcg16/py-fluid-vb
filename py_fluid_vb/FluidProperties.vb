@@ -36,12 +36,6 @@ Public Class FluidProperties
         '       By      Norman Glen
         '       Notes   Input parameter RhoOrZ added, to allow output of density or compressibility.
 
-        '   Correlation limits.
-        Const Tmin As Double = 245          ' -28.15°C
-        Const Tmax As Double = 330          ' 56.85°C
-        Const Pmin As Double = 95000.0#      ' 0.95 bar(a)
-        Const Pmax = 2000000.0#               ' 20 bar(a)
-
         '   Correlation coefficients.
         Dim b(2) As Double
         Dim c(2) As Double
@@ -85,59 +79,53 @@ Public Class FluidProperties
         Dim i As Integer
         Dim SgnDelta1 As Integer, SgnDelta2 As Integer
 
-        If (T >= Tmin) And (T <= Tmax) And (P >= Pmin) And (P <= Pmax) Then
+        Tr = T / Tred
 
-            Tr = T / Tred
+        For i = 0 To 2
+            Bz = Bz + b(i) / Tr ^ i
+        Next i
 
-            For i = 0 To 2
-                Bz = Bz + b(i) / Tr ^ i
-            Next i
+        For i = 0 To 2
+            Cz = Cz + c(i) / Tr ^ i
+        Next i
 
-            For i = 0 To 2
-                Cz = Cz + c(i) / Tr ^ i
-            Next i
+        '       Use 1.05 x ideal gas density as intial estimate
+        '       as this will always be higher than the true value
+        '       and use 1 % of this value as the initial increment.
 
-            '       Use 1.05 x ideal gas density as intial estimate
-            '       as this will always be higher than the true value
-            '       and use 1 % of this value as the initial increment.
+        RhoN2 = 1.05 * P / (Rspec * T)
 
-            RhoN2 = 1.05 * P / (Rspec * T)
+        RhoInc = 0.01 * RhoN2
 
-            RhoInc = 0.01 * RhoN2
+        RhoInit = RhoN2 - RhoInc
 
-            RhoInit = RhoN2 - RhoInc
+        SgnDelta1 = -1
 
-            SgnDelta1 = -1
+        Do
 
-            Do
+            Rhor = RhoInit / Rhored
 
-                Rhor = RhoInit / Rhored
+            Z = 1 + Bz * Rhor + Cz * Rhor ^ 2
 
-                Z = 1 + Bz * Rhor + Cz * Rhor ^ 2
+            RhoN2 = P / (Rspec * T * Z)
 
-                RhoN2 = P / (Rspec * T * Z)
+            Delta = 100 * (RhoN2 - RhoInit) / RhoInit
 
-                Delta = 100 * (RhoN2 - RhoInit) / RhoInit
+            SgnDelta2 = Math.Sign(Delta)
 
-                SgnDelta2 = Math.Sign(Delta)
+            If SgnDelta1 <> SgnDelta2 Then
+                SgnDelta1 = SgnDelta2
+                RhoInc = -0.5 * RhoInc
+            End If
 
-                If SgnDelta1 <> SgnDelta2 Then
-                    SgnDelta1 = SgnDelta2
-                    RhoInc = -0.5 * RhoInc
-                End If
+            RhoInit = RhoInit - RhoInc
 
-                RhoInit = RhoInit - RhoInc
+        Loop Until Math.Abs(Delta) / Tol < 1
 
-            Loop Until Math.Abs(Delta) / Tol < 1
-
-            RhoN2 = RhoN2 / (1 + 0.01 * Offset)
-            Z = P / (Rspec * T * RhoN2)
-        
-            Return RhoN2
-
-        Else
-            Return Double.NaN
-        End If
+        RhoN2 = RhoN2 / (1 + 0.01 * Offset)
+        Z = P / (Rspec * T * RhoN2)
+    
+        Return RhoN2
 
     End Function
     Public Function NitrogenIsentropicExponent2019(T As Double, P As Double) As Double
@@ -172,12 +160,6 @@ Public Class FluidProperties
         '       By      Norman Glen
 
         Try
-            '   Correlation limits.
-            Const Tmin As Double = 270          ' -3.15°C
-            Const Tmax As Double = 350          ' 76.85°C
-            Const Pmin As Double = 100000.0#      ' 1 bar(a)
-            Const Pmax = 20100000.0#              ' 201 bar(a)
-
             '   Correlation coefficients.
             Dim a(2) As Double
             Dim b(2) As Double
@@ -209,32 +191,27 @@ Public Class FluidProperties
 
             Dim i As Integer
 
-            If (T >= Tmin) And (T <= Tmax) And (P >= Pmin) And (P <= Pmax) Then
+            Tr = T / Tred
+            Rhor = (NitrogenPropertiesLimitedRange(T, P) - NitrogenPropertiesLimitedRange(T, 100000.0)) / Rhored
 
-                Tr = T / Tred
-                Rhor = (NitrogenPropertiesLimitedRange(T, P) - NitrogenPropertiesLimitedRange(T, 100000.0)) / Rhored
+            For i = 0 To 2
+                Az = Az + a(i) * T ^ i
+            Next i
 
-                For i = 0 To 2
-                    Az = Az + a(i) * T ^ i
-                Next i
+            For i = 0 To 2
+                Bz = Bz + b(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Bz = Bz + b(i) / Tr ^ i
-                Next i
+            For i = 0 To 2
+                Cz = Cz + c(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Cz = Cz + c(i) / Tr ^ i
-                Next i
-
-                For i = 0 To 2
-                    Dz = Dz + d(i) / Tr ^ i
-                Next i
+            For i = 0 To 2
+                Dz = Dz + d(i) / Tr ^ i
+            Next i
 
 
-                NitrogenIsentropicExponent2019 = Az + Bz * Rhor + Cz * Rhor ^ 2 + Dz * Rhor ^ 3
-            Else
-                NitrogenIsentropicExponent2019 = Double.NaN
-            End If
+            NitrogenIsentropicExponent2019 = Az + Bz * Rhor + Cz * Rhor ^ 2 + Dz * Rhor ^ 3
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -290,11 +267,6 @@ Public Class FluidProperties
         '       Notes   Pressure range extended down from 1 bar(a) to 0.95 bar(a).
 
         Try
-            '   Correlation limits.
-            Const Tmin As Double = 245          ' -28.15°C
-            Const Tmax As Double = 330          ' 56.85°C
-            Const Pmin As Double = 95000.0#       ' 0.95 bar(a)
-            Const Pmax = 2000000.0#               ' 20 bar(a)
 
             '   Correlation coefficients.
             Dim a(1) As Double
@@ -321,23 +293,18 @@ Public Class FluidProperties
 
             Dim i As Integer
 
-            If (UpstreamTemperatureABS >= Tmin) And (UpstreamTemperatureABS <= Tmax) And (UpstreamPressureABS >= Pmin) And (UpstreamPressureABS <= Pmax) Then
+            Tr = Tred / UpstreamTemperatureABS
 
-                Tr = Tred / UpstreamTemperatureABS
+            RhoRat = NitrogenPropertiesLimitedRange(UpstreamTemperatureABS, UpstreamPressureABS) / NitrogenPropertiesLimitedRange(UpstreamTemperatureABS, 100000.0#) - 1.0#
 
-                RhoRat = NitrogenPropertiesLimitedRange(UpstreamTemperatureABS, UpstreamPressureABS) / NitrogenPropertiesLimitedRange(UpstreamTemperatureABS, 100000.0#) - 1.0#
+            For i = 0 To 1
+                CStarAmb = CStarAmb + a(i) * Tr ^ i
+            Next i
 
-                For i = 0 To 1
-                    CStarAmb = CStarAmb + a(i) * Tr ^ i
-                Next i
+            CStarRat = 1.0# + (b(1) + b(2) * Tr ^ n(1)) * RhoRat + (b(3) + b(4) * Tr ^ n(2)) * RhoRat ^ 2
 
-                CStarRat = 1.0# + (b(1) + b(2) * Tr ^ n(1)) * RhoRat + (b(3) + b(4) * Tr ^ n(2)) * RhoRat ^ 2
+            CStarNitrogenLimitedRange = CStarAmb * CStarRat
 
-                CStarNitrogenLimitedRange = CStarAmb * CStarRat
-
-            Else
-                Return Double.NaN
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -382,14 +349,6 @@ Public Class FluidProperties
         '       By      Gabriele Chinello (code adapted from Norman Glen's template)
 
         Try
-            '   Correlation limits.
-            Const Tmin As Double = 270          ' -3.15°C
-            Const Tmax As Double = 285          ' 12°C
-            Const Tmax2 As Double = 320         ' 46.85°C
-
-            Const Pmin As Double = 100000.0#      ' 1 bar(a)
-            Const Pmax As Double = 3200000.0#     ' 32 bar(a)
-            Const Pmax2 As Double = 4000000.0#    ' 40 bar(a)
 
 
             '   Correlation coefficients.
@@ -436,63 +395,55 @@ Public Class FluidProperties
             Dim i As Integer
             Dim SgnDelta1 As Integer, SgnDelta2 As Integer
 
+            Tr = TemperatureABS / Tred
 
-            If (TemperatureABS >= Tmin) And (TemperatureABS <= Tmax) And (PressureABS >= Pmin) And (PressureABS <= Pmax) Or (TemperatureABS >= Tmax) And (TemperatureABS <= Tmax2) And (PressureABS >= Pmin) And (PressureABS <= Pmax2) Then
+            For i = 0 To 2
+                Bz = Bz + b(i) / Tr ^ i
+            Next i
 
-                Tr = TemperatureABS / Tred
+            For i = 0 To 3
+                Cz = Cz + c(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Bz = Bz + b(i) / Tr ^ i
-                Next i
+            For i = 0 To 3
+                Ez = Ez + e(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 3
-                    Cz = Cz + c(i) / Tr ^ i
-                Next i
+            '       Use 1.05 x ideal gas density as intial estimate
+            '       as this will always be higher than the true value
+            '       and use 1 % of this value as the initial increment.
 
-                For i = 0 To 3
-                    Ez = Ez + e(i) / Tr ^ i
-                Next i
+            Density = 1.05 * PressureABS / (R * TemperatureABS)
 
-                '       Use 1.05 x ideal gas density as intial estimate
-                '       as this will always be higher than the true value
-                '       and use 1 % of this value as the initial increment.
+            RhoInc = 0.01 * Density
 
-                Density = 1.05 * PressureABS / (R * TemperatureABS)
+            RhoInit = Density - RhoInc
 
-                RhoInc = 0.01 * Density
+            SgnDelta1 = -1
 
-                RhoInit = Density - RhoInc
+            Do
 
-                SgnDelta1 = -1
+                Rhor = RhoInit / Rhored
 
-                Do
+                Z = 1 + Bz * Rhor + Cz * Rhor ^ 2 + Ez * Rhor ^ 4
 
-                    Rhor = RhoInit / Rhored
+                Density = PressureABS / (R * TemperatureABS * Z)
 
-                    Z = 1 + Bz * Rhor + Cz * Rhor ^ 2 + Ez * Rhor ^ 4
+                Delta = 100 * (Density - RhoInit) / RhoInit
 
-                    Density = PressureABS / (R * TemperatureABS * Z)
+                SgnDelta2 = Math.Sign(Delta)
 
-                    Delta = 100 * (Density - RhoInit) / RhoInit
+                If SgnDelta1 <> SgnDelta2 Then
+                    SgnDelta1 = SgnDelta2
+                    RhoInc = -0.5 * RhoInc
+                End If
 
-                    SgnDelta2 = Math.Sign(Delta)
+                RhoInit = RhoInit - RhoInc
 
-                    If SgnDelta1 <> SgnDelta2 Then
-                        SgnDelta1 = SgnDelta2
-                        RhoInc = -0.5 * RhoInc
-                    End If
+            Loop Until System.Math.Abs(Delta) / Tol < 1
 
-                    RhoInit = RhoInit - RhoInc
+            Return Density
 
-                Loop Until System.Math.Abs(Delta) / Tol < 1
-
-                Return Density
-
-            Else
-
-                Return Double.NaN
-
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -602,14 +553,6 @@ Public Class FluidProperties
         '   Correlation limits.
 
         Try
-            Const Tmin As Double = 270          ' -3.15°C
-            Const Tmax As Double = 285          ' 12°C
-            Const Tmax2 As Double = 320         ' 46.85°C
-
-            Const Pmin As Double = 100000.0#      ' 1 bar(a)
-            Const Pmax As Double = 3200000.0#     ' 32 bar(a)
-            Const Pmax2 As Double = 4000000.0#    ' 40 bar(a)
-
             '   Correlation coefficients.
             Dim a(2) As Double
             Dim b(2) As Double
@@ -650,33 +593,28 @@ Public Class FluidProperties
 
             Dim i As Integer
 
-            If (TemperatureABS >= Tmin) And (TemperatureABS <= Tmax) And (PressureABS >= Pmin) And (PressureABS <= Pmax) Or (TemperatureABS >= Tmax) And (TemperatureABS <= Tmax2) And (PressureABS >= Pmin) And (PressureABS <= Pmax2) Then
+            Tr = TemperatureABS / Tred
+            Rhor = (CarbonDioxideProperties(TemperatureABS, PressureABS) - CarbonDioxideProperties(TemperatureABS, 100000.0#)) / Rhored
 
-                Tr = TemperatureABS / Tred
-                Rhor = (CarbonDioxideProperties(TemperatureABS, PressureABS) - CarbonDioxideProperties(TemperatureABS, 100000.0#)) / Rhored
+            For i = 0 To 2
+                Az = Az + a(i) * TemperatureABS ^ i
+            Next i
 
-                For i = 0 To 2
-                    Az = Az + a(i) * TemperatureABS ^ i
-                Next i
+            For i = 0 To 2
+                Bz = Bz + b(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Bz = Bz + b(i) / Tr ^ i
-                Next i
+            For i = 0 To 5
+                Cz = Cz + c(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 5
-                    Cz = Cz + c(i) / Tr ^ i
-                Next i
-
-                For i = 0 To 5
-                    Dz = Dz + d(i) / Tr ^ i
-                Next i
+            For i = 0 To 5
+                Dz = Dz + d(i) / Tr ^ i
+            Next i
 
 
-                CarbonDioxideIsentropicExponent = Az + Bz * Rhor + Cz * Rhor ^ 2 + Dz * Rhor ^ 3
+            CarbonDioxideIsentropicExponent = Az + Bz * Rhor + Cz * Rhor ^ 2 + Dz * Rhor ^ 3
 
-            Else
-                Return Double.NaN
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -715,11 +653,6 @@ Public Class FluidProperties
 
 
         Try
-            '   Correlation limits.
-            Const Tmin As Double = 245          ' -28.15°C
-            Const Tmax As Double = 330          ' 56.85°C
-            Const Pmin As Double = 95000.0#      ' 0.95 bar(a)
-            Const Pmax = 2000000.0#               ' 20 bar(a)
 
             '   Correlation coefficients.
             Dim b(2) As Double
@@ -764,60 +697,54 @@ Public Class FluidProperties
             Dim i As Integer
             Dim SgnDelta1 As Integer, SgnDelta2 As Integer
 
-            If (T >= Tmin) And (T <= Tmax) And (P >= Pmin) And (P <= Pmax) Then
+            Tr = T / Tred
 
-                Tr = T / Tred
+            For i = 0 To 2
+                Bz = Bz + b(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Bz = Bz + b(i) / Tr ^ i
-                Next i
+            For i = 0 To 2
+                Cz = Cz + c(i) / Tr ^ i
+            Next i
 
-                For i = 0 To 2
-                    Cz = Cz + c(i) / Tr ^ i
-                Next i
+            '       Use 1.05 x ideal gas density as intial estimate
+            '       as this will always be higher than the true value
+            '       and use 1 % of this value as the initial increment.
 
-                '       Use 1.05 x ideal gas density as intial estimate
-                '       as this will always be higher than the true value
-                '       and use 1 % of this value as the initial increment.
+            RhoCH4 = 1.05 * P / (Rspec * T)
 
-                RhoCH4 = 1.05 * P / (Rspec * T)
+            RhoInc = 0.01 * RhoCH4
 
-                RhoInc = 0.01 * RhoCH4
+            RhoInit = RhoCH4 - RhoInc
 
-                RhoInit = RhoCH4 - RhoInc
+            SgnDelta1 = -1
 
-                SgnDelta1 = -1
+            Do
 
-                Do
+                Rhor = RhoInit / Rhored
 
-                    Rhor = RhoInit / Rhored
+                Z = 1 + Bz * Rhor + Cz * Rhor ^ 2
 
-                    Z = 1 + Bz * Rhor + Cz * Rhor ^ 2
+                RhoCH4 = P / (Rspec * T * Z)
 
-                    RhoCH4 = P / (Rspec * T * Z)
+                Delta = 100 * (RhoCH4 - RhoInit) / RhoInit
 
-                    Delta = 100 * (RhoCH4 - RhoInit) / RhoInit
+                SgnDelta2 = System.Math.Sign(Delta)
 
-                    SgnDelta2 = System.Math.Sign(Delta)
+                If SgnDelta1 <> SgnDelta2 Then
+                    SgnDelta1 = SgnDelta2
+                    RhoInc = -0.5 * RhoInc
+                End If
 
-                    If SgnDelta1 <> SgnDelta2 Then
-                        SgnDelta1 = SgnDelta2
-                        RhoInc = -0.5 * RhoInc
-                    End If
+                RhoInit = RhoInit - RhoInc
 
-                    RhoInit = RhoInit - RhoInc
+            Loop Until System.Math.Abs(Delta) / Tol < 1
 
-                Loop Until System.Math.Abs(Delta) / Tol < 1
+            RhoCH4 = RhoCH4 / (1 + 0.01 * Offset)
+            Z = P / (Rspec * T * RhoCH4)
 
-                RhoCH4 = RhoCH4 / (1 + 0.01 * Offset)
-                Z = P / (Rspec * T * RhoCH4)
+            Return RhoCH4
 
-                Return RhoCH4
-            Else
-
-                Return Double.NaN
-
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -864,50 +791,38 @@ Public Class FluidProperties
         '       By      Norman Glen
 
         Try
-            '   Correlation limits.
-            Const Tmin As Double = 245          ' -28.15°C
-            Const Tmax As Double = 330          ' 56.85°C
-            Const Pmin As Double = 95000.0#      ' 0.95 bar(a)
-            Const Pmax = 2000000.0#               ' 20 bar(a)
+        '   Correlation coefficients.
+        Dim a(3) As Double
+        Dim b(3) As Double
 
-            '   Correlation coefficients.
-            Dim a(3) As Double
-            Dim b(3) As Double
+        a(1) = 0.966183
+        a(2) = 0.636767
+        a(3) = -0.0173905
 
-            a(1) = 0.966183
-            a(2) = 0.636767
-            a(3) = -0.0173905
+        b(1) = 1.0#
+        b(2) = 0.00124251
+        b(3) = 0.00000864591
 
-            b(1) = 1.0#
-            b(2) = 0.00124251
-            b(3) = 0.00000864591
+        '   Reducing parameters.
+        Const Tred As Double = 285      ' In K, mid point of temperature range of correlation.
 
-            '   Reducing parameters.
-            Const Tred As Double = 285      ' In K, mid point of temperature range of correlation.
+        Dim Tr As Double
+        Dim RhoRat As Double
+        Dim EtaAmb As Double, EtaRat As Double
 
-            Dim Tr As Double
-            Dim RhoRat As Double
-            Dim EtaAmb As Double, EtaRat As Double
+        Tr = Tred / T
 
-            If (T >= Tmin) And (T <= Tmax) And (P >= Pmin) And (P <= Pmax) Then
+        RhoRat = MethaneProperties(T, P) / MethaneProperties(T, 100000.0#) - 1.0#
 
-                Tr = Tred / T
+        EtaAmb = System.Math.Sqrt(T) / (a(1) + a(2) * Tr + a(3) * Tr ^ 2)
+        EtaRat = b(1) + b(2) * RhoRat * Tr ^ 1.3 + b(3) * RhoRat ^ 2 * Tr ^ 2.6
 
-                RhoRat = MethaneProperties(T, P) / MethaneProperties(T, 100000.0#) - 1.0#
+        MethaneViscosity = EtaAmb * EtaRat
 
-                EtaAmb = System.Math.Sqrt(T) / (a(1) + a(2) * Tr + a(3) * Tr ^ 2)
-                EtaRat = b(1) + b(2) * RhoRat * Tr ^ 1.3 + b(3) * RhoRat ^ 2 * Tr ^ 2.6
+        MethaneViscosity /= 1000000  'Convert from micro Pa.s to Pa.s
 
-                MethaneViscosity = EtaAmb * EtaRat
+        Return MethaneViscosity
 
-                MethaneViscosity /= 1000000  'Convert from micro Pa.s to Pa.s
-
-                Return MethaneViscosity
-            Else
-
-                MethaneViscosity = Double.NaN
-
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -961,12 +876,6 @@ Public Class FluidProperties
         '       By      Norman Glen
 
         Try
-            '   Correlation limits.
-            Dim Tmin As Double = 245          ' -28.15°C
-            Dim Tmax As Double = 330          ' 56.85°C
-            Dim Pmin As Double = 100000.0#      ' 1 bar(a)
-            Dim Pmax = 2000000.0#               ' 20 bar(a)
-
             '   Correlation coefficients.
             Dim a(3) As Double
             Dim b(4) As Double
@@ -994,25 +903,18 @@ Public Class FluidProperties
 
             Dim i As Integer
 
-            If (UpstreamTemperatureABS >= Tmin) And (UpstreamTemperatureABS <= Tmax) And (UpstreamPressureABS >= Pmin) And (UpstreamPressureABS <= Pmax) Then
+            Tr = Tred / UpstreamTemperatureABS
 
-                Tr = Tred / UpstreamTemperatureABS
+            RhoRat = MethaneProperties(UpstreamTemperatureABS, UpstreamPressureABS) / MethaneProperties(UpstreamTemperatureABS, 100000.0#) - 1.0#
 
-                RhoRat = MethaneProperties(UpstreamTemperatureABS, UpstreamPressureABS) / MethaneProperties(UpstreamTemperatureABS, 100000.0#) - 1.0#
+            For i = 0 To 3
+                CStarAmb = CStarAmb + a(i) * Tr ^ i
+            Next i
 
-                For i = 0 To 3
-                    CStarAmb = CStarAmb + a(i) * Tr ^ i
-                Next i
+            CStarRat = 1.0# + (b(1) + b(2) * Tr ^ n(1)) * RhoRat + (b(3) + b(4) * Tr ^ n(2)) * RhoRat ^ 2
 
-                CStarRat = 1.0# + (b(1) + b(2) * Tr ^ n(1)) * RhoRat + (b(3) + b(4) * Tr ^ n(2)) * RhoRat ^ 2
+            CStarMethane = CStarAmb * CStarRat
 
-                CStarMethane = CStarAmb * CStarRat
-
-            Else
-
-                CStarMethane = Double.NaN
-
-            End If
         Catch ex As Exception
             ' Log.Error(ex)
             Return Double.NaN
@@ -1063,11 +965,6 @@ Public Class FluidProperties
 
 
         Try
-            '   Correlation limits.
-            Dim Tmin As Double = 245          ' -28.15°C
-            Dim Tmax As Double = 330          ' 56.85°C
-            Dim Pmin As Double = 95000.0#      ' 0.95 bar(a)
-            Dim Pmax = 2000000.0#               ' 20 bar(a)
 
             '   Correlation coefficients.
             Dim a(3) As Double
@@ -1158,11 +1055,6 @@ Public Class FluidProperties
         '       Notes   Temperature range extended down from 270 K to 245 K and up from 300 K to 330 K
 
         Try
-            '   Correlation limits.
-            Dim Tmin As Double = 245          ' -28.15°C
-            Dim Tmax As Double = 330          ' 56.85°C
-            Dim Pmin As Double = 95000.0#      ' 0.95 bar(a)
-            Dim Pmax = 2000000.0#               ' 20 bar(a)
 
             '   Correlation coefficients.
             Dim a(3) As Double
@@ -1228,12 +1120,6 @@ Public Class FluidProperties
         '       Notes   Temperature range extended down from 270 K to 245 K and up from 300 K to 330 K
 
         Try
-
-            '   Correlation limits.
-            Dim Tmin As Double = 245          ' -28.15°C
-            Dim Tmax As Double = 330          ' 56.85°C
-            Dim Pmin As Double = 95000.0#      ' 0.95 bar(a)
-            Dim Pmax = 2000000.0#               ' 20 bar(a)
 
             '   Correlation coefficients.
             Dim a(6) As Double
