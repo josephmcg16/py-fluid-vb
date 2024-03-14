@@ -18,7 +18,7 @@ Navigate to the Python project directory where setup.py is located.
 Create a wheel distribution of the package:
 
 ```bash
-python setup.py bdist_wheel
+python setup.py sdist bdist_wheel
 ```
 The wheel file will be created in the dist/ directory.
 
@@ -27,7 +27,7 @@ The wheel file will be created in the dist/ directory.
 Install the package using the generated wheel file with pip:
 
 ```bash
-pip install dist/your_package_name-version-py3-none-any.whl
+pip install dist/py_fluid_vb-version-py3-none-any.whl
 ```
 
 ### Usage
