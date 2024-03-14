@@ -1,0 +1,22 @@
+{
+    "nitrogen": {
+        "density": "NitrogenPropertiesLimitedRange",
+        "isentropic_exponent": "NitrogenIsentropicExponent2019",
+        "c_star": "CStarNitrogenLimitedRange"
+    },
+    "carbon_dioxide": {
+        "density": "CarbonDioxideProperties",
+        "dynamic_viscosity": "CarbonDioxideViscosity",
+        "isentropic_exponent": "CarbonDioxideIsentropicExponent"
+    },
+    "methane": {
+        "density": "MethaneProperties",
+        "dynamic_viscosity": "MethaneViscosity",
+        "c_star": "CStarMethane"
+    },
+    "hydrogen": {
+        "density": "HydrogenProperties",
+        "dynamic_viscosity": "HydrogenViscosity",
+        "c_star": "CStarHydrogen"
+    }
+}
