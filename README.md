@@ -42,6 +42,4 @@ fluid_props = FluidProperties()
 # Call the method
 result = fluid_props.get_property(temperature=300, pressure=101325, fluid="nitrogen", property_name="density")
 print(result)
-Contributing
-Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
 ```
